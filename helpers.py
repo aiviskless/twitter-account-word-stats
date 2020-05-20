@@ -1,14 +1,14 @@
 def formatWord(word):
     formattedWord = word
     symbolsToRemove = [",", "(", ")", "?", ".", "!",
-                       ";", '"', "-", "”", "—", ":"]
+                       ";", '"', "-", "”", "—", ":", "“"]
     for symbol in symbolsToRemove:
         if symbol in formattedWord:
             formattedWord = formattedWord.replace(symbol, "")
     return formattedWord.lower()
 
 
-def checkForCommonWords(word):
+def isCommonWord(word):
     commonWords = [
         "the",
         "be",
