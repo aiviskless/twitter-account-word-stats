@@ -1,66 +1,68 @@
 import tweepy
 import config
 from helpers import formatWord, isCommonWord
-
 import tkinter as tk
 from tkinter import font
-from tkinter.ttk import Progressbar
 
+from PIL import Image, ImageTk
+from urllib.request import urlopen
+from io import BytesIO
+
+# TKINTER settings
 HEIGHT = 600
 WIDTH = 900
-
 COLOR = "#00acee"
 
 # font settings
-FONT = "Verdana"
+FONT = "Comic Sans MS"
 tiny = (FONT, 10)
 small = (FONT, 14)
 medium = (FONT, 18)
 large = (FONT, 22)
 xLarge = (FONT, 26)
-titleFont = FONT + " 26 bold italic"
-
-# Authenticate to Twitter
-auth = tweepy.OAuthHandler(config.api["key"], config.api["secret"])
-auth.set_access_token(config.access["key"], config.access["secret"])
-api = tweepy.API(auth)
-
-try:
-    api.verify_credentials()
-    print("Authentication OK")
-except:
-    print("Error during authentication")
+titleFont = (FONT, 26, "bold italic")
+accountTitle = (FONT, 18, "bold")
 
 
 def clearField(field):
     field.delete('1.0', tk.END)
 
 
-def getWords(account):
-    text.tag_config("a", font=tiny)
-    text.tag_config("b", font=small)
-    text.tag_config("c", font=medium)
-    text.tag_config("d", font=large)
-    text.tag_config("e", font=xLarge)
-    text.config(cursor="arrow")
-
-    text.configure(state='normal')
-    # clear previous output
-    clearField(text)
-
-    print("Button clicked!", account)
-
-    tweets = []
+def getTweets(account, api):
     try:
-        # get tweets
-        tweets = api.user_timeline(
-            screen_name=account, count=3000, include_rts=False, tweet_mode="extended")
+        return api.user_timeline(screen_name=account, count=3000, include_rts=False, tweet_mode="extended")
     except:
-        text.configure(state='normal')
-        text.insert(tk.INSERT, "ERROR - account doesn't exist", "a")
-        text.configure(state='disabled')
+        return False
+
+
+def changeProfileImage(url):
+    u = urlopen(url)
+    raw_data = u.read()
+    u.close()
+    im = Image.open(BytesIO(raw_data))
+    photo = ImageTk.PhotoImage(im)
+    profileImageLabel.configure(image=photo)
+    profileImageLabel.image = photo
+    profileImageLabel.place(width=48, height=48)
+
+
+def outputWords(account, api, outputField):
+    outputField.tag_config("tiny", font=tiny)
+    outputField.tag_config("small", font=small)
+    outputField.tag_config("medium", font=medium)
+    outputField.tag_config("large", font=large)
+    outputField.tag_config("xLarge", font=xLarge)
+    outputField.tag_config("accountTitle", font=accountTitle)
+    outputField.config(cursor="arrow")
+    outputField.configure(state='normal')
+
+    # clear previous output
+    clearField(outputField)
+
+    tweets = getTweets(account, api)
 
     if tweets:
+        changeProfileImage(tweets[0].user.profile_image_url_https)
         words = {}
         # example:
         # words = {
@@ -86,30 +88,48 @@ def getWords(account):
                 else:
                     words[formattedWord] = 1
 
-        # clear previous output
-        clearField(text)
+        # output user data
+        outputField.insert(
+            tk.INSERT, tweets[0].user.name + " @" + tweets[0].user.screen_name + "\n", "accountTitle")
 
         # output words
         for x, y in words.items():
+            # show only words that appear atleast 5 times
             if y >= 5:
                 if y > 8 and y <= 12:
-                    text.insert(tk.INSERT, x.upper() + "   ", "b")
+                    outputField.insert(tk.INSERT, x.upper() + "   ", "small")
                 elif y > 12 and y <= 16:
-                    text.insert(tk.INSERT, x.upper() + "   ", "c")
+                    outputField.insert(tk.INSERT, x.upper() + "   ", "medium")
                 elif y > 16 and y <= 20:
-                    text.insert(tk.INSERT, x.upper() + "   ", "d")
+                    outputField.insert(tk.INSERT, x.upper() + "   ", "large")
                 elif y > 20:
-                    text.insert(tk.INSERT, x.upper() + "   ", "e")
+                    outputField.insert(tk.INSERT, x.upper() + "   ", "xLarge")
                 else:
-                    text.insert(tk.INSERT, x.upper() + "   ", "a")
+                    outputField.insert(tk.INSERT, x.upper() + "   ", "tiny")
+    else:
+        # hide image
+        profileImageLabel.place(width=0, height=0)
 
-        text.configure(state='disabled')
+        outputField.insert(
+            tk.INSERT, "ERROR - account doesn't exist", "medium")
+
+    outputField.configure(state='disabled')
 
 
-# TKINTER
+# Authenticate to Twitter
+auth = tweepy.OAuthHandler(config.api["key"], config.api["secret"])
+auth.set_access_token(config.access["key"], config.access["secret"])
+api = tweepy.API(auth)
+try:
+    api.verify_credentials()
+    print("Authentication OK")
+except:
+    print("Error during authentication")
+
+
+# TKINTER UI
 root = tk.Tk()
 root.title("TWITTER ACCOUNT WORD STATS")
-
 canvas = tk.Canvas(root, height=HEIGHT, width=WIDTH)
 canvas.pack()
 
@@ -124,7 +144,6 @@ title = tk.Label(root, text="TWITTER ACCOUNT WORD STATS",
                  fg="#fff",
                  bg=COLOR,
                  font=titleFont)
-
 title.place(relx=0.5, rely=0.04, anchor="n")
 
 frame = tk.Frame(root, bg=COLOR, bd=5)
@@ -142,8 +161,13 @@ input.place(relx=0.05, relwidth=0.6, relheight=1)
 
 # submit btn
 button = tk.Button(frame, text="SUBMIT", font=small,
-                   command=lambda: getWords(input.get()))
+                   command=lambda: outputWords(input.get(), api, text))
 button.place(relx=0.7, relwidth=0.3, relheight=1)
+
+# profile image
+profileImageLabel = tk.Label(root)
+profileImageLabel.place(rely=0.3, relx=0.095, width=0,
+                        height=0, anchor="n")
 
 lowerFrame = tk.Frame(root, bg=COLOR, bd=10)
 lowerFrame.place(relx=0.5, rely=0.3, relwidth=0.75, relheight=0.6, anchor="n")
